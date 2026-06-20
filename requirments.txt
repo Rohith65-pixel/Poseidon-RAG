@@ -1,0 +1,6 @@
+langchain
+langgraph
+argopy
+xarray
+netCDF4
+matplotlib
