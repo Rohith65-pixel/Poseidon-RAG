@@ -24,3 +24,10 @@ Pillar 4: The Proof of Concept (PoC)
 
     To prove this works, you will scope your initial project specifically to Indian Ocean data.
 
+
+--------------------------------------------------------------------------------------------------------------
+N_PROF: 55: This is huge! It means on June 1, 2023, there were 55 individual float profiles captured in your region.
+
+N_LEVELS: 1242: This represents the vertical depth levels. As the floats rise from the deep ocean to the surface, they take measurements at various pressure levels. The maximum number of depth steps captured by a float in this file is 1,242.
+
+Data variables: (64): This means there are 64 different parameters stored inside. Don't worry, you only need a handful of them (like Temperature, Salinity, Pressure, Latitude, Longitude, and Time). The rest are mostly quality control flags and technical metadata.
