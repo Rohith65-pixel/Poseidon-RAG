@@ -1,6 +1,7 @@
 langchain
 langgraph
 langchain_chroma
+langchain_groq
 langchain-huggingface
 sentence-transformers
 argopy
