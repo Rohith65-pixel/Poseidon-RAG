@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 os.environ['GROQ_API_KEY'] = os.getenv('GROQ_API_KEY')
 
-from rag_setup import retriever
+from rag_setup import retriever,PER_DIR
 
 llm = ChatGroq(model='llama-3.3-70b-versatile',temperature=0.0)
 
@@ -27,7 +27,7 @@ def execute_query(query: str) -> str:
     """
 
     try :
-        conn = sqlite3.connect('data/argo_data.db')
+        conn = sqlite3.connect(os.path.join(PER_DIR,'argo_data.db'))
         cursor = conn.cursor()
         cursor.execute(query)
         rows = cursor.fetchall()
@@ -68,7 +68,9 @@ def chatbot(state: AgentState) :
     {rag_context}
     
     Analyze the context provided above to identify platform numbers or coordinates, write a valid SQLite query, and execute it using 'execute_query' to fetch the actual numbers before giving an answer.
-    If you don't have enough information/context or can't find any useful data return 'INFORMATION UNAVAILABLE' """)
+    If you don't have enough information/context or can't find any useful data return 'INFORMATION UNAVAILABLE'
+    CRITICAL RULE: Never return thousands of rows. If querying raw measurements, ALWAYS append 'LIMIT 10' to your query unless you are using math aggregations like AVG() or COUNT().
+       """)
 
     return  {
                 'messages' : [llm_with_tools.invoke([system_prompt] + message)]
@@ -86,17 +88,18 @@ graph_builder.add_conditional_edges('chatbot',tools_condition)
 graph_builder.add_edge('tools','chatbot')
 
 graph = graph_builder.compile()
-inputs = {
-    "messages": [HumanMessage(content="How many floats are there in Atlantic Ocean?")]
-}
 
-for event in graph.stream(inputs, stream_mode='updates'):
-    # Look into whichever node just finished updating the state graph
-    for node_name, state_update in event.items():
-        if 'messages' in state_update:
-            for msg in state_update['messages']:
-                print(f"\n--- [Node: {node_name}] Output ---")
-                msg.pretty_print()
+if __name__ == '__main' :
+    inputs = {
+        "messages": [HumanMessage(content="How many floats are there in Atlantic Ocean?")]
+    }
+
+    for event in graph.stream(inputs, stream_mode='updates'):
+        for node_name, state_update in event['messages']:
+            if 'messages' in state_update:
+                for msg in state_update['messages']:
+                    print(f"\n--- [Node: {node_name}] Output ---")
+                    msg.pretty_print()
 
 
 
