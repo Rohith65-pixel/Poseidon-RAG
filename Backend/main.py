@@ -1,18 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from LangGraph_Bot import graph,HumanMessage
+from LangGraph_Bot import get_graph,HumanMessage
 import uvicorn
 
-
 app = FastAPI()
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=['*'],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -26,12 +22,13 @@ def home() :
     return {'response' : 'Agent is running'}
 
 @app.post('/api/agent')
-def process_req(data: ChatInput) :
+async def process_req(data: ChatInput) :
     input = {'messages':[HumanMessage(content=data.message)]}
-    print(data)
-    res = graph.invoke(input)
+    print(f"Received: {data}")
+    graph = await get_graph()
+    res = await graph.ainvoke(input)
 
     return {'response' : res['messages'][-1].content}
 
 if __name__ == '__main__':
-    uvicorn.run(app,port=8000)
+    uvicorn.run(app,port=5000)

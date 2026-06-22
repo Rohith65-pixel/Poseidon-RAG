@@ -1,3 +1,4 @@
+from argopy import status
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
@@ -24,7 +25,8 @@ query = '''
         ROUND(MIN(pres), 1) as min_pres,
         ROUND(MAX(pres), 1) as max_pres,
         ROUND(AVG(latitude), 4) as avg_lat,
-        ROUND(AVG(longitude), 4) as avg_lon
+        ROUND(AVG(longitude), 4) as avg_lon,
+        time
     FROM measurements
     GROUP BY Platform_number
 '''
@@ -41,13 +43,13 @@ def get_sub_region(lat, lon):
 
 docs = []
 for row in rows:
-    float_id = row[0].decode().strip()
+    float_id = row[0]
     
     region_tag = get_sub_region(row[8], row[9])
     
     page_content = (
         f"Oceanographic profile data summary for Argo float platform ID: {float_id}.\n"
-        f"Temporal context: Observed on June 1, 2023.\n"
+        f"Temporal context: Observed on {row[-1]}.\n"
         f"Geospatial region: Located within the {region_tag} region at coordinates (Latitude: {row[8]}, Longitude: {row[9]}).\n"
         f"Sampling metric: Captured {row[1]} discrete hydrographic column observations.\n"
         f"Vertical profile scale: Spans ocean pressures from a minimum surface boundary of {row[6]} dbar down to a maximum depth boundary of {row[7]} dbar.\n"
@@ -58,7 +60,7 @@ for row in rows:
     metadata = {
         "platform_number": float_id,
         "region": region_tag,
-        "date": "2023-06-01",
+        "date": row[-1],
         "max_depth": row[7]
     }
     
@@ -78,7 +80,7 @@ else :
                     embedding=embeddings,
                     documents=docs,
                     persist_directory=VECTOR_DB_DIR
-                )
+            )
 
 retriever = vector_db.as_retriever()
 print("Vector pipeline successfully built and ready for RAG query processing!")

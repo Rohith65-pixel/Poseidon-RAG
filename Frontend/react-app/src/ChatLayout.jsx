@@ -19,7 +19,7 @@ function ChatLayout() {
         setLoading(true);
 
         try {
-            const res = await axios.post('http://localhost:8000/api/agent',
+            const res = await axios.post('http://localhost:5000/api/agent',
               {
                 message: new_msg.text
               });
@@ -68,7 +68,7 @@ function ChatLayout() {
               )}
               {isLoading && (
                 <div className="text-center text-primary mt-3">
-                  <Spinner animation="border" size="sm" /> <span>Analyzing Database...</span>
+                  <Spinner animation="border" size="sm" /> <span>Analyzing Prompt....</span>
                 </div>
               )}
             </Card.Body>

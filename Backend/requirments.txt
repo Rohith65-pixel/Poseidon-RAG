@@ -10,3 +10,6 @@ netCDF4
 matplotlib
 fastapi
 uvicorn
+langchain-mcp-adapters
+mcp
+sqlparse
