@@ -23,12 +23,19 @@ def home() :
 
 @app.post('/api/agent')
 async def process_req(data: ChatInput) :
+    config = {"configurable": {"thread_id": "thread-1"}}
     input = {'messages':[HumanMessage(content=data.message)]}
     print(f"Received: {data}")
-    graph = await get_graph()
-    res = await graph.ainvoke(input)
+    try :
+        graph = await get_graph()
+        res = await graph.ainvoke(input=input)
+    except Exception as e:
+        print("LLM ERROR:",str(e))
 
-    return {'response' : res['messages'][-1].content}
+    return  {
+                'response' : res['messages'][-1].content,
+                'points' : res.get('points', [])
+            }
 
 if __name__ == '__main__':
     uvicorn.run(app,port=5000)

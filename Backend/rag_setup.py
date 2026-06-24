@@ -11,7 +11,7 @@ VECTOR_DB_DIR = os.path.join(PER_DIR,'argo_vector_db')
 
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-conn = sqlite3.connect('data/argo_data.db')
+conn = sqlite3.connect(os.path.join(PER_DIR,'argo_data.db'))
 cursor = conn.cursor()
 
 query = '''

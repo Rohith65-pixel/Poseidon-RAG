@@ -1,13 +1,17 @@
 import { useState } from "react";
 import axios from 'axios';
 import { Container, Row, Col, Card, Form, Button, Spinner, Badge } from 'react-bootstrap';
+
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+
 function ChatLayout() {
-    const [input,setInput] = useState('');
-    const [messages,setMessages] = useState([{ 
+    const [input, setInput] = useState('');
+    const [messages, setMessages] = useState([{ 
         role: 'ai',
         text: 'Hello! I am your Argo Ocean Assistant. Ask me about float locations, temperatures, or salinity!' 
-        }]);
-    const [isLoading,setLoading] = useState(false);
+    }]);
+    const [isLoading, setLoading] = useState(false);
+    const [mapPins, setMapPins] = useState([]);
 
     const sendMessage = async (e) => {
         e.preventDefault();
@@ -19,13 +23,17 @@ function ChatLayout() {
         setLoading(true);
 
         try {
-            const res = await axios.post('http://localhost:5000/api/agent',
-              {
+            const res = await axios.post('http://localhost:5000/api/agent', {
                 message: new_msg.text
-              });
+            });
+            
             setMessages((prev) => [...prev, { role: 'ai', text: res.data.response }]);
-        }
-        catch(error) {
+            
+            if (res.data.points && res.data.points.length > 0) {
+                setMapPins(res.data.points);
+            }
+            
+        } catch(error) {
             console.error("Deep Error Details:", error.response?.data);
             setMessages((prev) => [...prev, { role: 'error', text: 'Failed to reach the backend.' }]);
         } finally {
@@ -68,7 +76,7 @@ function ChatLayout() {
               )}
               {isLoading && (
                 <div className="text-center text-primary mt-3">
-                  <Spinner animation="border" size="sm" /> <span>Analyzing Prompt....</span>
+                  <Spinner animation="border" size="sm" /> <span className="ms-2">Analyzing Prompt....</span>
                 </div>
               )}
             </Card.Body>
@@ -91,13 +99,32 @@ function ChatLayout() {
           </Card>
         </Col>
 
-        {/* RIGHT COLUMN: Map & Data Visualization Placeholder */}
+        {/* RIGHT COLUMN: Interactive Geospatial Map */}
         <Col md={7} className="h-100">
-          <Card className="h-100 shadow-sm border-0 bg-white d-flex align-items-center justify-content-center">
-            <div className="text-center text-muted">
-              <h3>🗺️ Geospatial Map Area</h3>
-              <p>We will integrate React-Leaflet or Plotly here next!</p>
-            </div>
+          <Card className="h-100 shadow-sm border-0 overflow-hidden">
+            {/* Set a default center point (15, 65 is roughly the Arabian Sea) */}
+            <MapContainer center={[15.0, 65.0]} zoom={4} style={{ height: '100%', width: '100%' }}>
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              />
+              
+              {/* Dynamically render pins based on backend response */}
+              {mapPins.map((pin, index) => (
+                <Marker key={index} position={[pin.lat, pin.lng]}>
+                  <Popup>
+                    <div className="text-center">
+                      <strong>Platform ID:</strong> {pin.id} <br />
+                      <strong>Latitude:</strong> {pin.lat.toFixed(3)}° <br/>
+                      <strong>Longitude:</strong> {pin.lng.toFixed(3)}° <br/>
+                      {pin.temp && <><strong>Temp:</strong> {pin.temp.toFixed(2)}°C<br /></>}
+                      {pin.psal && <><strong>Salinity:</strong> {pin.psal.toFixed(2)} PSU<br/></>}
+                      {pin.pres && <><strong> Pressure:</strong> {pin.pres.toFixed(2)} dbar</>}
+                    </div>
+                  </Popup>
+                </Marker>
+              ))}
+            </MapContainer>
           </Card>
         </Col>
 
