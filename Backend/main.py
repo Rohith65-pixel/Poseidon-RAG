@@ -28,13 +28,17 @@ async def process_req(data: ChatInput) :
     print(f"Received: {data}")
     try :
         graph = await get_graph()
-        res = await graph.ainvoke(input=input)
+        res = await graph.ainvoke(input=input,config=config)
     except Exception as e:
         print("LLM ERROR:",str(e))
+        return  {
+                    'response' : f"An error occurred while processing your request. {str(e)}",
+                }
 
     return  {
                 'response' : res['messages'][-1].content,
-                'points' : res.get('points', [])
+                'points' : res.get('points', []),
+                'csv_data' : res.get('csv_data', [])
             }
 
 if __name__ == '__main__':

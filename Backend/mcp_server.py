@@ -7,12 +7,7 @@ import os
 mcp = FastMCP('search_database')
 
 PER_DIR = os.path.join(os.path.dirname(__file__), 'data')
-print(PER_DIR)
-
-def isAgg(query: str) :
-    parse = sqlparse.parse(query)
-    clean_statement = str(parse[0]).strip()
-    return bool(re.search(r'\b(COUNT|SUM|AVG|MIN|MAX)\s*\(', clean_statement, re.IGNORECASE))
+# print(PER_DIR)
 
 @mcp.tool()
 def execute_query(query: str) -> dict:
@@ -27,12 +22,6 @@ def execute_query(query: str) -> dict:
         return {'result': []}
     
     clean_query = str(parse[0]).strip()
-    
-    if not isAgg(clean_query) :
-        if not re.search(r'\b(LIMIT)',clean_query,re.IGNORECASE) :
-            if clean_query.endswith(';') :
-                clean_query = clean_query[:-1]
-            clean_query += ' LIMIT 200;'
     
     try :
         conn = sqlite3.connect(os.path.join(PER_DIR,'argo_data.db'))

@@ -9,6 +9,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 import os
 import asyncio
 import json
+import pandas as pd
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -27,6 +28,7 @@ async def get_graph() :
     class AgentState(MessagesState) :
         rag_context: str
         points : list[dict]
+        csv_data : list[dict]
 
 
     client = MultiServerMCPClient({
@@ -49,6 +51,9 @@ async def get_graph() :
                 }      
 
     async def chatbot(state: AgentState) :
+        # - TOKEN LIMIT (CRITICAL): Never return massive datasets. 
+        #           - For aggregate queries (COUNT, MAX, MIN), no limit is required.
+        #           - For all other raw data queries, you MUST append `LIMIT 25`.
         message = state['messages']
         rag_context = state.get('rag_context','')
         system_prompt = SystemMessage(content=f"""
@@ -70,13 +75,12 @@ async def get_graph() :
                 {rag_context}
 
                 3. QUERY RULES & EXECUTION
+                - Before answering, make sure if the database has access for a specific region or float. If not, inform the user that the data is unavailable or tell him that it is limited and show limited data.
                 - TOOL USAGE: You MUST execute a valid SQLite query using the `search_database` tool to fetch empirical data before answering. Do not guess or hallucinate numbers.
-                - MAP CONSTRAINTS: If a user asks about a location, region, or specific floats, your `SELECT` statement MUST explicitly include `platform_number`, `latitude`, `longitude`, `psal`, `pres`, and `temp`.
+                - Don't Summerize or aggregate data unless explicitly asked. If the user asks for a summary, you can provide it, but always include the raw data in your response.
+                - MAP CONSTRAINTS: If a user asks about a location, region, or specific floats, your `SELECT` statement MUST explicitly include `platform_number`, `latitude`, `longitude`, `psal`, `pres`,`temp`, and `time`.
                 - AGGREGATION & ALIASING: When finding the general location/status of floats, use `GROUP BY platform_number` and average the metrics. You MUST use SQL aliases to preserve the exact column names required by the map. 
-                  Example: `SELECT platform_number, AVG(latitude) AS latitude, AVG(longitude) AS longitude, AVG(temp) AS temp...`
-                - TOKEN LIMIT (CRITICAL): Never return massive datasets. 
-                  - For aggregate queries (COUNT, MAX, MIN), no limit is required.
-                  - For all other raw data queries, you MUST append `LIMIT 25`.
+                  Example: `SELECT platform_number, AVG(latitude) AS latitude, AVG(longitude) AS longitude...`
                 - FALLBACK: If the retrieved data does not contain the answer or the context is insufficient, reply exactly with: "INFORMATION UNAVAILABLE."
 
                 4. SECURITY & ROLEPLAY GUARDRAILS
@@ -94,32 +98,50 @@ async def get_graph() :
         last_msg = state['messages'][-1]
         
         p = []
+        full_data = []
         # print(last_msg)
         if last_msg.type == 'tool':
             try:
                 for block in last_msg.content:
                     if isinstance(block, dict) and "text" in block:
                         rows = json.loads(block["text"])
+                        seen_ids = set()
                         for row in rows.get("result", []):
                             
                             row = {key.lower(): value for key, value in row.items()}
+                            full_data.append(row)
+
+                            platform_number = str(row.get('platform_number', 'Unknown'))
+                        
+                            if platform_number in seen_ids:
+                                continue
+
+                            seen_ids.add(platform_number)
                             
                             if row.get("latitude") is not None and row.get("longitude") is not None:
                                 p.append({
-                                    "id": str(row.get('platform_number', 'Unknown')),
+                                    "id": platform_number,
                                     "lat": float(row.get("latitude")),
                                     "lng": float(row.get("longitude")),
-                                    "temp": row.get("temp"),
-                                    "psal": row.get("psal"),
-                                    "pres": row.get("pres"),
                                 })
             except Exception as e:
                 print('Error:', str(e))
                 print('Raw Message Data:', last_msg.content)
             print('-' * 50)
-            
+        
+        if len(full_data) >= 50:
+            sample_data = full_data[:5]
+
+            last_msg.content = f"""
+                    Tool Success. The database found {len(full_data)} total rows. 
+                    They have been sent to the UI. The map shows {len(p)} unique floats, and the full data is ready for CSV download.
+                    Do NOT list all of them. To save token space, here is a sample of 5 rows: 
+                    {json.dumps(sample_data)}
+                    """
+
         return  {
-                    'points' : p
+                    'points' : p,
+                    'csv_data' : full_data
                 }
         
 
@@ -137,7 +159,9 @@ async def get_graph() :
     graph_builder.add_edge('tools','get_points')
     graph_builder.add_edge('get_points','chatbot')
 
+    # graph = graph_builder.compile(checkpointer=InMemorySaver())
     graph = graph_builder.compile()
+
 
     return graph
 
@@ -146,7 +170,7 @@ async def main() :
     graph = await get_graph()
     input_data = {'messages':[HumanMessage(content='Where are floats present in Arabian Sea?')]}
     try :
-        res = await graph.ainvoke(input=input_data)
+        res = await graph.ainvoke(input=input_data,config=config)
         print(res['points'])
     except Exception as e :
         print("LLM Error:",str(e))

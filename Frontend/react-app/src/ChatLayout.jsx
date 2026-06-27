@@ -2,7 +2,8 @@ import { useState } from "react";
 import axios from 'axios';
 import { Container, Row, Col, Card, Form, Button, Spinner, Badge } from 'react-bootstrap';
 
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import CsvLayout from "./CsvLayout";
+import MapLayout from "./MapLayout";
 
 function ChatLayout() {
     const [input, setInput] = useState('');
@@ -11,7 +12,6 @@ function ChatLayout() {
         text: 'Hello! I am your Argo Ocean Assistant. Ask me about float locations, temperatures, or salinity!' 
     }]);
     const [isLoading, setLoading] = useState(false);
-    const [mapPins, setMapPins] = useState([]);
 
     const sendMessage = async (e) => {
         e.preventDefault();
@@ -27,11 +27,11 @@ function ChatLayout() {
                 message: new_msg.text
             });
             
-            setMessages((prev) => [...prev, { role: 'ai', text: res.data.response }]);
-            
-            if (res.data.points && res.data.points.length > 0) {
-                setMapPins(res.data.points);
-            }
+            setMessages((prev) => [...prev, { role: 'ai', text: res.data.response,
+                                              csv_data: res.data?.csv_data || [] ,
+                                              points: res.data?.points || [] 
+                                            }
+                                  ]);
             
         } catch(error) {
             console.error("Deep Error Details:", error.response?.data);
@@ -44,9 +44,7 @@ function ChatLayout() {
     return (
     <Container fluid className="p-3 vh-100 bg-light">
       <Row className="h-100">
-        
-        {/* LEFT COLUMN: The AI Chat Interface */}
-        <Col md={5} className="d-flex flex-column h-100">
+        <Col className="d-flex flex-column h-100">
           <Card className="flex-grow-1 shadow-sm border-0">
             <Card.Header className="bg-primary text-white d-flex justify-content-between align-items-center">
               <h5 className="mb-0">Argo Ocean Assistant</h5>
@@ -71,6 +69,19 @@ function ChatLayout() {
                   >
                     <strong>{msg.role === 'user' ? 'You' : 'ArgoBot'}: </strong>
                     <span style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</span>
+                    
+                    <div className="mt-2 d-flex gap-2">
+                      <br/>
+                      {
+                        msg.points?.length > 0 && 
+                        <MapLayout mapPins={msg.points} />
+                      }
+                      {
+                        msg.csv_data?.length > 0 && 
+                        <CsvLayout csv_data={msg.csv_data} />
+                      }
+                    </div>
+                    
                   </div>
                 ))
               )}
@@ -98,36 +109,6 @@ function ChatLayout() {
             </Card.Footer>
           </Card>
         </Col>
-
-        {/* RIGHT COLUMN: Interactive Geospatial Map */}
-        <Col md={7} className="h-100">
-          <Card className="h-100 shadow-sm border-0 overflow-hidden">
-            {/* Set a default center point (15, 65 is roughly the Arabian Sea) */}
-            <MapContainer center={[15.0, 65.0]} zoom={4} style={{ height: '100%', width: '100%' }}>
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              />
-              
-              {/* Dynamically render pins based on backend response */}
-              {mapPins.map((pin, index) => (
-                <Marker key={index} position={[pin.lat, pin.lng]}>
-                  <Popup>
-                    <div className="text-center">
-                      <strong>Platform ID:</strong> {pin.id} <br />
-                      <strong>Latitude:</strong> {pin.lat.toFixed(3)}° <br/>
-                      <strong>Longitude:</strong> {pin.lng.toFixed(3)}° <br/>
-                      {pin.temp && <><strong>Temp:</strong> {pin.temp.toFixed(2)}°C<br /></>}
-                      {pin.psal && <><strong>Salinity:</strong> {pin.psal.toFixed(2)} PSU<br/></>}
-                      {pin.pres && <><strong> Pressure:</strong> {pin.pres.toFixed(2)} dbar</>}
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
-            </MapContainer>
-          </Card>
-        </Col>
-
       </Row>
     </Container>
   );
