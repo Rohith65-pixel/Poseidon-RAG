@@ -8,6 +8,7 @@ import os
 async def start_test(inputs: dict) :
     graph = await get_graph()
     input_data = {'messages': [HumanMessage(content=inputs['question'])]}
+    # config={'configurable':{'thread_id': "test_thread"}}
     res = await graph.ainvoke(input_data)
     
     return {

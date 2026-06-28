@@ -28,7 +28,7 @@ async def process_req(data: ChatInput) :
     print(f"Received: {data}")
     try :
         graph = await get_graph()
-        res = await graph.ainvoke(input=input,config=config)
+        res = await graph.ainvoke(input=input)
     except Exception as e:
         print("LLM ERROR:",str(e))
         return  {
